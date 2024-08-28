@@ -99,8 +99,8 @@ with col2:
             # Debugging Information
             st.write("Response:", result)
 
-            if 'choices' in result and result['choices']:
-                terminos_list = result['choices'][0]['text'].strip().split('\n')
+            if 'choices' in result.get('output', {}) and result['output']['choices']:
+                terminos_list = result['output']['choices'][0].get('text', '').strip().split('\n')
                 terminos_list = [term.strip() for term in terminos_list if term.strip()]
                 return terminos_list
             else:
