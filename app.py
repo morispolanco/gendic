@@ -75,6 +75,25 @@ with col2:
         response = requests.post(url, headers=headers, data=payload)
         return response.json()['output']['choices'][0]['text'].strip()
 
+    def generar_terminos_relacionados(campo_estudio):
+        url = "https://api.together.xyz/inference"
+        payload = json.dumps({
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "prompt": f"Genera una lista de 101 términos clave relacionados con el campo de estudio '{campo_estudio}'. Incluye términos relevantes que abarquen diferentes aspectos y subcampos dentro del área de estudio.",
+            "max_tokens": 1024,
+            "temperature": 0.7,
+            "top_p": 0.7,
+            "top_k": 50,
+            "repetition_penalty": 1,
+            "stop": ["\n"]
+        })
+        headers = {
+            'Authorization': f'Bearer {TOGETHER_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url, headers=headers, data=payload)
+        return response.json()['output']['choices'][0]['text'].strip().split('\n')
+
     def create_docx(definiciones):
         doc = Document()
         doc.add_heading('Diccionario Económico - Escuela Austríaca', 0)
@@ -98,10 +117,8 @@ with col2:
 
     if st.button("Generar términos"):
         if campo_estudio:
-            # Replace this with actual logic to generate terms related to the field of study
-            terminos_generados = [f"Término {i+1}" for i in range(101)]
-            terminos_editados = st.text_area("Edita la lista de términos:", "\n".join(terminos_generados),
-                                             height=400)
+            terminos_generados = generar_terminos_relacionados(campo_estudio)
+            terminos_editados = st.text_area("Edita la lista de términos:", "\n".join(terminos_generados), height=400)
             terminos = terminos_editados.split("\n")
             st.session_state.terminos_generados = terminos
         else:
@@ -110,7 +127,6 @@ with col2:
     if 'terminos_generados' in st.session_state:
         if st.button("Generar todas las definiciones"):
             if st.session_state.terminos_generados:
-                contex_dict = {}
                 with st.spinner("Buscando información y generando definiciones..."):
                     definiciones = {}
                     for termino in st.session_state.terminos_generados:
