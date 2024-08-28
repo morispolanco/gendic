@@ -12,7 +12,7 @@ def crear_columna_info():
     st.markdown("""
     ## Sobre esta aplicación
 
-    Esta aplicación es un Generador de Diccionario que permite a los usuarios crear un diccionario personalizado basado en un campo o área de estudio específico.
+    Esta aplicación es un Generador de Diccionario que permite a los usuarios crear un diccionario personalizado basado en un campo o área de estudio específico, incluyendo solo definiciones y referencias.
 
     ### Cómo usar la aplicación:
 
@@ -20,9 +20,8 @@ def crear_columna_info():
     2. Haga clic en "Generar términos" para obtener una lista de 101 términos relacionados.
     3. Edite la lista de términos según sea necesario.
     4. Seleccione si desea generar definiciones para todos los términos o para un término específico.
-    5. Haga clic en "Generar definiciones" para obtener las definiciones.
-    6. Lea las definiciones y las fuentes proporcionadas.
-    7. Si lo desea, descargue un documento DOCX con toda la información.
+    5. Haga clic en "Generar definiciones" para obtener las definiciones y referencias.
+    6. Descargue un documento DOCX con las definiciones y referencias.
 
     ### Autor y actualización:
     **Moris Polanco**, [Fecha actual]
@@ -80,8 +79,8 @@ with col2:
         url = "https://api.together.xyz/inference"
         payload = json.dumps({
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Contexto: {contexto}\n\nTérmino: {termino}\n\nProporciona una definición detallada del término '{termino}'. La definición debe ser informativa, similar a una entrada de diccionario extendida. Incluye conceptos relacionados si es relevante.\n\nDefinición:",
-            "max_tokens": 2048,
+            "prompt": f"Contexto: {contexto}\n\nTérmino: {termino}\n\nProporciona una definición concisa y precisa del término '{termino}' sin incluir conceptos relacionados, antónimos, sinónimos u otra información adicional.\n\nDefinición:",
+            "max_tokens": 1024,
             "temperature": 0.7,
             "top_p": 0.7,
             "top_k": 50,
@@ -95,17 +94,47 @@ with col2:
         response = requests.post(url, headers=headers, data=payload)
         return response.json()['output']['choices'][0]['text'].strip()
 
-    def create_docx(campo_estudio, terminos_definiciones):
+    def create_docx(campo_estudio, terminos_definiciones, referencias):
         doc = Document()
         doc.add_heading(f'Diccionario de {campo_estudio}', 0)
 
+        # Definiciones
+        doc.add_heading('Definiciones', level=1)
         for termino, definicion in terminos_definiciones.items():
-            doc.add_heading(termino, level=1)
-            doc.add_paragraph(definicion)
+            doc.add_paragraph(f"{termino}: {definicion}")
 
-        doc.add_paragraph('\nNota: Este documento fue generado por un asistente de IA. Verifica la información con fuentes académicas para un análisis más profundo.')
+        # Referencias
+        doc.add_page_break()
+        doc.add_heading('Referencias', level=1)
+        for referencia in referencias:
+            doc.add_paragraph(referencia, style='List Bullet')
+
+        doc.add_paragraph('\nNota: Este documento fue generado por un asistente de IA. Verifique la información con fuentes académicas para un análisis más profundo.')
 
         return doc
+
+    def formatear_referencia_apa(ref):
+        authors = ref.get('author', 'Autor desconocido')
+        year = ref.get('year', 's.f.')
+        title = ref.get('title', 'Título desconocido')
+        journal = ref.get('journal', '')
+        volume = ref.get('volume', '')
+        issue = ref.get('issue', '')
+        pages = ref.get('pages', '')
+        url = ref.get('url', '')
+
+        reference = f"{authors} ({year}). {title}."
+        if journal:
+            reference += f" {journal}"
+            if volume:
+                reference += f", {volume}"
+                if issue:
+                    reference += f"({issue})"
+            if pages:
+                reference += f", {pages}"
+        reference += f". {url}"
+        
+        return reference
 
     # Interfaz de usuario
     campo_estudio = st.text_input("Ingresa un campo o área de estudio:")
@@ -128,26 +157,36 @@ with col2:
             termino_seleccionado = st.selectbox("Selecciona un término:", st.session_state.terminos_editados)
 
         if st.button("Generar definiciones"):
-            with st.spinner("Generando definiciones..."):
+            with st.spinner("Generando definiciones y referencias..."):
                 terminos_definiciones = {}
+                todas_referencias = []
+
                 if opcion_definicion == "Generar todas las definiciones":
                     for termino in st.session_state.terminos_editados:
                         resultados_busqueda = buscar_informacion(f"{termino} {campo_estudio}")
                         contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
                         definicion = generar_definicion(termino, contexto)
                         terminos_definiciones[termino] = definicion
+                        referencias = [formatear_referencia_apa(item) for item in resultados_busqueda.get("results", [])]
+                        todas_referencias.extend(referencias)
                 else:
                     resultados_busqueda = buscar_informacion(f"{termino_seleccionado} {campo_estudio}")
                     contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
                     definicion = generar_definicion(termino_seleccionado, contexto)
                     terminos_definiciones[termino_seleccionado] = definicion
+                    referencias = [formatear_referencia_apa(item) for item in resultados_busqueda.get("results", [])]
+                    todas_referencias.extend(referencias)
 
                 st.subheader("Definiciones generadas:")
                 for termino, definicion in terminos_definiciones.items():
                     st.markdown(f"**{termino}**: {definicion}")
 
+                st.subheader("Referencias:")
+                for referencia in todas_referencias:
+                    st.markdown(f"- {referencia}")
+
                 # Botón para descargar el documento
-                doc = create_docx(campo_estudio, terminos_definiciones)
+                doc = create_docx(campo_estudio, terminos_definiciones, todas_referencias)
                 buffer = BytesIO()
                 doc.save(buffer)
                 buffer.seek(0)
