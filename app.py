@@ -76,25 +76,38 @@ with col2:
         return response.json()['output']['choices'][0]['text'].strip()
 
     def generar_terminos_relacionados(campo_estudio):
-        url = "https://api.together.xyz/inference"
-        payload = json.dumps({
-            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Genera una lista de 101 términos clave relacionados con el campo de estudio '{campo_estudio}'. Incluye términos relevantes que abarquen diferentes aspectos y subcampos dentro del área de estudio.",
-            "max_tokens": 1024,
-            "temperature": 0.7,
-            "top_p": 0.7,
-            "top_k": 50,
-            "repetition_penalty": 1,
-            "stop": ["\n"]
-        })
-        headers = {
-            'Authorization': f'Bearer {TOGETHER_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        response = requests.post(url, headers=headers, data=payload)
-        terminos_list = response.json()['output']['choices'][0]['text'].strip().split('\n')
-        terminos_list = [term.strip() for term in terminos_list if term.strip()]
-        return terminos_list
+        try:
+            url = "https://api.together.xyz/inference"
+            payload = json.dumps({
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "prompt": f"Genera una lista de 101 términos clave relacionados con el campo de estudio '{campo_estudio}'. Incluye términos relevantes que abarquen diferentes aspectos y subcampos dentro del área de estudio.",
+                "max_tokens": 1024,
+                "temperature": 0.7,
+                "top_p": 0.7,
+                "top_k": 50,
+                "repetition_penalty": 1,
+                "stop": ["\n"]
+            })
+            headers = {
+                'Authorization': f'Bearer {TOGETHER_API_KEY}',
+                'Content-Type': 'application/json'
+            }
+            response = requests.post(url, headers=headers, data=payload)
+            response.raise_for_status()  # Raise an error for bad status codes
+            result = response.json()
+
+            # Debugging Information
+            st.write("Response:", result)
+
+            if 'choices' in result and result['choices']:
+                terminos_list = result['choices'][0]['text'].strip().split('\n')
+                terminos_list = [term.strip() for term in terminos_list if term.strip()]
+                return terminos_list
+            else:
+                return []
+        except Exception as e:
+            st.error(f"Error al generar términos: {e}")
+            return []
 
     def create_docx(definiciones):
         doc = Document()
