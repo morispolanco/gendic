@@ -5,36 +5,31 @@ from docx import Document
 from io import BytesIO
 
 # Set page configuration
-st.set_page_config(page_title="Generador de Diccionario por Campo de Estudio", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Generador de Diccionario Especializado", page_icon="📚", layout="wide")
 
 # Function to create the information column
 def crear_columna_info():
     st.markdown("""
     ## Sobre esta aplicación
 
-    Esta aplicación es un Generador de Diccionario que permite a los usuarios crear un diccionario personalizado basado en un campo o área de estudio específico, incluyendo solo definiciones y referencias.
+    Esta aplicación genera un diccionario especializado con definiciones concisas y referencias académicas en formato APA.
 
     ### Cómo usar la aplicación:
 
-    1. Ingrese un campo o área de estudio de su interés.
-    2. Haga clic en "Generar términos" para obtener una lista de 101 términos relacionados.
-    3. Edite la lista de términos según sea necesario.
-    4. Seleccione si desea generar definiciones para todos los términos o para un término específico.
-    5. Haga clic en "Generar definiciones" para obtener las definiciones y referencias.
-    6. Descargue un documento DOCX con las definiciones y referencias.
+    1. Ingrese un campo o área de estudio.
+    2. Genere y edite la lista de términos.
+    3. Genere definiciones para todos los términos o para uno específico.
+    4. Descargue el documento DOCX con definiciones y referencias.
 
-    ### Autor y actualización:
+    ### Autor:
     **Moris Polanco**, [Fecha actual]
 
-    ### Cómo citar esta aplicación (formato APA):
-    Polanco, M. (2024). *Generador de Diccionario por Campo de Estudio* [Aplicación web]. [URL de la aplicación]
-
     ---
-    **Nota:** Esta aplicación utiliza inteligencia artificial para generar términos y definiciones. Verifique la información con fuentes adicionales para un análisis más profundo.
+    **Nota:** Verifique la información con fuentes adicionales para un análisis más profundo.
     """)
 
 # Titles and Main Column
-st.title("Generador de Diccionario por Campo de Estudio")
+st.title("Generador de Diccionario Especializado")
 
 col1, col2 = st.columns([1, 2])
 
@@ -79,7 +74,7 @@ with col2:
         url = "https://api.together.xyz/inference"
         payload = json.dumps({
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Contexto: {contexto}\n\nTérmino: {termino}\n\nProporciona una definición concisa y precisa del término '{termino}' sin incluir conceptos relacionados, antónimos, sinónimos u otra información adicional.\n\nDefinición:",
+            "prompt": f"Proporciona una definición concisa y precisa del término '{termino}' basada en el siguiente contexto académico. No incluyas ejemplos, sinónimos, antónimos ni conceptos relacionados. Solo la definición:\n\nContexto: {contexto}\n\nDefinición:",
             "max_tokens": 1024,
             "temperature": 0.7,
             "top_p": 0.7,
@@ -108,8 +103,6 @@ with col2:
         doc.add_heading('Referencias', level=1)
         for referencia in referencias:
             doc.add_paragraph(referencia, style='List Bullet')
-
-        doc.add_paragraph('\nNota: Este documento fue generado por un asistente de IA. Verifique la información con fuentes académicas para un análisis más profundo.')
 
         return doc
 
