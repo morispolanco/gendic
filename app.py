@@ -92,7 +92,9 @@ with col2:
             'Content-Type': 'application/json'
         }
         response = requests.post(url, headers=headers, data=payload)
-        return response.json()['output']['choices'][0]['text'].strip().split('\n')
+        terminos_list = response.json()['output']['choices'][0]['text'].strip().split('\n')
+        terminos_list = [term.strip() for term in terminos_list if term.strip()]
+        return terminos_list
 
     def create_docx(definiciones):
         doc = Document()
@@ -118,9 +120,12 @@ with col2:
     if st.button("Generar términos"):
         if campo_estudio:
             terminos_generados = generar_terminos_relacionados(campo_estudio)
-            terminos_editados = st.text_area("Edita la lista de términos:", "\n".join(terminos_generados), height=400)
-            terminos = terminos_editados.split("\n")
-            st.session_state.terminos_generados = terminos
+            if not terminos_generados:
+                st.warning("No se pudieron generar términos relacionados. Por favor, intenta con un campo de estudio diferente.")
+            else:
+                terminos_editados = st.text_area("Edita la lista de términos:", "\n".join(terminos_generados), height=400)
+                terminos = terminos_editados.split("\n")
+                st.session_state.terminos_generados = terminos
         else:
             st.warning("Por favor, ingresa un campo o área de estudio.")
 
@@ -130,20 +135,21 @@ with col2:
                 with st.spinner("Buscando información y generando definiciones..."):
                     definiciones = {}
                     for termino in st.session_state.terminos_generados:
-                        resultados_busqueda = buscar_informacion(termino)
-                        contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
-                        fuentes = [{
-                            "author": item.get("author", "Autor desconocido"),
-                            "year": item.get("year", "s.f."),
-                            "title": item.get("title"),
-                            "journal": item.get("journal", "Revista desconocida"),
-                            "volume": item.get("volume", ""),
-                            "issue": item.get("issue", ""),
-                            "pages": item.get("pages", ""),
-                            "url": item.get("url")
-                        } for item in resultados_busqueda.get("results", [])]
-                        definicion = generar_definicion(termino, contexto)
-                        definiciones[termino] = (definicion, fuentes)
+                        if termino.strip():  # Check if term is not empty
+                            resultados_busqueda = buscar_informacion(termino.strip())
+                            contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
+                            fuentes = [{
+                                "author": item.get("author", "Autor desconocido"),
+                                "year": item.get("year", "s.f."),
+                                "title": item.get("title"),
+                                "journal": item.get("journal", "Revista desconocida"),
+                                "volume": item.get("volume", ""),
+                                "issue": item.get("issue", ""),
+                                "pages": item.get("pages", ""),
+                                "url": item.get("url")
+                            } for item in resultados_busqueda.get("results", [])]
+                            definicion = generar_definicion(termino, contexto)
+                            definiciones[termino] = (definicion, fuentes)
 
                 # Mostrar definiciones
                 for termino, (definicion, _) in definiciones.items():
