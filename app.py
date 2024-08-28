@@ -5,36 +5,37 @@ from docx import Document
 from io import BytesIO
 
 # Set page configuration
-st.set_page_config(page_title="Diccionario Económico Austríaco", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Generador de Diccionario por Campo de Estudio", page_icon="📚", layout="wide")
 
 # Function to create the information column
 def crear_columna_info():
     st.markdown("""
     ## Sobre esta aplicación
 
-    Esta aplicación es un Diccionario Económico basado en la perspectiva de la Escuela Austríaca de Economía. Permite a los usuarios obtener definiciones de términos económicos según esta interpretación.
+    Esta aplicación es un Generador de Diccionario que permite a los usuarios crear un diccionario personalizado basado en un campo o área de estudio específico.
 
     ### Cómo usar la aplicación:
 
-    1. Elija un campo o área de estudio.
-    2. Genere 101 términos relacionados con esa área.
-    3. Edite la lista de términos si es necesario.
-    4. Haga clic en "Generar todas las definiciones" para obtener las definiciones desde la perspectiva de la escuela austríaca.
-    5. Lea las definiciones y las fuentes proporcionadas.
-    6. Si lo desea, descargue un documento DOCX con toda la información.
+    1. Ingrese un campo o área de estudio de su interés.
+    2. Haga clic en "Generar términos" para obtener una lista de 101 términos relacionados.
+    3. Edite la lista de términos según sea necesario.
+    4. Seleccione si desea generar definiciones para todos los términos o para un término específico.
+    5. Haga clic en "Generar definiciones" para obtener las definiciones.
+    6. Lea las definiciones y las fuentes proporcionadas.
+    7. Si lo desea, descargue un documento DOCX con toda la información.
 
     ### Autor y actualización:
-    **Moris Polanco**, 28 ag 2024
+    **Moris Polanco**, [Fecha actual]
 
     ### Cómo citar esta aplicación (formato APA):
-    Polanco, M. (2024). *Diccionario Económico Austríaco* [Aplicación web]. https://escuelaaustriaca.streamlit.app
+    Polanco, M. (2024). *Generador de Diccionario por Campo de Estudio* [Aplicación web]. [URL de la aplicación]
 
     ---
-    **Nota:** Esta aplicación utiliza inteligencia artificial para generar definiciones basadas en la visión de la escuela austríaca. Verifique la información con fuentes adicionales para un análisis más profundo.
+    **Nota:** Esta aplicación utiliza inteligencia artificial para generar términos y definiciones. Verifique la información con fuentes adicionales para un análisis más profundo.
     """)
 
 # Titles and Main Column
-st.title("Diccionario Económico Austríaco")
+st.title("Generador de Diccionario por Campo de Estudio")
 
 col1, col2 = st.columns([1, 2])
 
@@ -44,6 +45,25 @@ with col1:
 with col2:
     TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
     SERPLY_API_KEY = st.secrets["SERPLY_API_KEY"]
+
+    def generar_terminos(campo_estudio):
+        url = "https://api.together.xyz/inference"
+        payload = json.dumps({
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "prompt": f"Genera una lista de 101 términos relacionados con el campo de estudio: {campo_estudio}. Cada término debe estar en una línea nueva.",
+            "max_tokens": 2048,
+            "temperature": 0.7,
+            "top_p": 0.7,
+            "top_k": 50,
+            "repetition_penalty": 1,
+        })
+        headers = {
+            'Authorization': f'Bearer {TOGETHER_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        response = requests.post(url, headers=headers, data=payload)
+        terminos = response.json()['output']['choices'][0]['text'].strip().split('\n')
+        return [termino.strip() for termino in terminos if termino.strip()]
 
     def buscar_informacion(query):
         url = f"https://api.serply.io/v1/scholar/q={query}"
@@ -60,7 +80,7 @@ with col2:
         url = "https://api.together.xyz/inference"
         payload = json.dumps({
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Contexto: {contexto}\n\nTérmino: {termino}\n\nProporciona una definición del término económico '{termino}' según la visión de la escuela austríaca de economía. La definición debe ser más larga, detallada, e informativa, similar a una entrada de diccionario extendida. Incluye referencias a fuentes específicas que traten este concepto.\n\nDefinición:",
+            "prompt": f"Contexto: {contexto}\n\nTérmino: {termino}\n\nProporciona una definición detallada del término '{termino}'. La definición debe ser informativa, similar a una entrada de diccionario extendida. Incluye conceptos relacionados si es relevante.\n\nDefinición:",
             "max_tokens": 2048,
             "temperature": 0.7,
             "top_p": 0.7,
@@ -75,110 +95,65 @@ with col2:
         response = requests.post(url, headers=headers, data=payload)
         return response.json()['output']['choices'][0]['text'].strip()
 
-    def generar_terminos_relacionados(campo_estudio):
-        try:
-            url = "https://api.together.xyz/inference"
-            payload = json.dumps({
-                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-                "prompt": f"Genera una lista de 101 términos clave relacionados con el campo de estudio '{campo_estudio}'. Incluye términos relevantes que abarquen diferentes aspectos y subcampos dentro del área de estudio.",
-                "max_tokens": 1024,
-                "temperature": 0.7,
-                "top_p": 0.7,
-                "top_k": 50,
-                "repetition_penalty": 1,
-                "stop": ["\n"]
-            })
-            headers = {
-                'Authorization': f'Bearer {TOGETHER_API_KEY}',
-                'Content-Type': 'application/json'
-            }
-            response = requests.post(url, headers=headers, data=payload)
-            response.raise_for_status()  # Raise an error for bad status codes
-            result = response.json()
-
-            # Debugging Information
-            st.write("Response:", result)
-
-            if 'choices' in result.get('output', {}) and result['output']['choices']:
-                terminos_list = result['output']['choices'][0].get('text', '').strip().split('\n')
-                terminos_list = [term.strip() for term in terminos_list if term.strip()]
-                return terminos_list
-            else:
-                return []
-        except Exception as e:
-            st.error(f"Error al generar términos: {e}")
-            return []
-
-    def create_docx(definiciones):
+    def create_docx(campo_estudio, terminos_definiciones):
         doc = Document()
-        doc.add_heading('Diccionario Económico - Escuela Austríaca', 0)
+        doc.add_heading(f'Diccionario de {campo_estudio}', 0)
 
-        for termino, (definicion, fuentes) in definiciones.items():
+        for termino, definicion in terminos_definiciones.items():
             doc.add_heading(termino, level=1)
             doc.add_paragraph(definicion)
 
-            if fuentes:
-                doc.add_heading('Fuentes', level=2)
-                for fuente in fuentes:
-                    doc.add_paragraph(f"{fuente['author']}. ({fuente['year']}). *{fuente['title']}*. {fuente['journal']}, {fuente['volume']}({fuente['issue']}), {fuente['pages']}. {fuente['url']}", style='List Bullet')
-
-            doc.add_paragraph('\nNota: Este documento fue generado por un asistente de IA. Verifica la información con fuentes académicas para un análisis más profundo.')
+        doc.add_paragraph('\nNota: Este documento fue generado por un asistente de IA. Verifica la información con fuentes académicas para un análisis más profundo.')
 
         return doc
 
-    st.write("Propón un campo o área de estudio:")
-
+    # Interfaz de usuario
     campo_estudio = st.text_input("Ingresa un campo o área de estudio:")
 
     if st.button("Generar términos"):
         if campo_estudio:
-            terminos_generados = generar_terminos_relacionados(campo_estudio)
-            if not terminos_generados:
-                st.warning("No se pudieron generar términos relacionados. Por favor, intenta con un campo de estudio diferente.")
-            else:
-                terminos_editados = st.text_area("Edita la lista de términos:", "\n".join(terminos_generados), height=400)
-                terminos = terminos_editados.split("\n")
-                st.session_state.terminos_generados = terminos
-        else:
-            st.warning("Por favor, ingresa un campo o área de estudio.")
+            with st.spinner("Generando términos..."):
+                terminos = generar_terminos(campo_estudio)
+                st.session_state.terminos = terminos
 
-    if 'terminos_generados' in st.session_state:
-        if st.button("Generar todas las definiciones"):
-            if st.session_state.terminos_generados:
-                with st.spinner("Buscando información y generando definiciones..."):
-                    definiciones = {}
-                    for termino in st.session_state.terminos_generados:
-                        if termino.strip():  # Check if term is not empty
-                            resultados_busqueda = buscar_informacion(termino.strip())
-                            contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
-                            fuentes = [{
-                                "author": item.get("author", "Autor desconocido"),
-                                "year": item.get("year", "s.f."),
-                                "title": item.get("title"),
-                                "journal": item.get("journal", "Revista desconocida"),
-                                "volume": item.get("volume", ""),
-                                "issue": item.get("issue", ""),
-                                "pages": item.get("pages", ""),
-                                "url": item.get("url")
-                            } for item in resultados_busqueda.get("results", [])]
-                            definicion = generar_definicion(termino, contexto)
-                            definiciones[termino] = (definicion, fuentes)
+    if 'terminos' in st.session_state:
+        st.subheader("Lista de términos (editable):")
+        terminos_editados = st.text_area("Edita los términos aquí:", "\n".join(st.session_state.terminos), height=300)
+        st.session_state.terminos_editados = terminos_editados.split('\n')
 
-                # Mostrar definiciones
-                for termino, (definicion, _) in definiciones.items():
-                    st.subheader(f"Definición para el término: {termino}")
-                    st.markdown(f"**{definicion}**")
+    if 'terminos_editados' in st.session_state:
+        opcion_definicion = st.radio("Selecciona una opción:", ["Generar todas las definiciones", "Generar definición para un término específico"])
+
+        if opcion_definicion == "Generar definición para un término específico":
+            termino_seleccionado = st.selectbox("Selecciona un término:", st.session_state.terminos_editados)
+
+        if st.button("Generar definiciones"):
+            with st.spinner("Generando definiciones..."):
+                terminos_definiciones = {}
+                if opcion_definicion == "Generar todas las definiciones":
+                    for termino in st.session_state.terminos_editados:
+                        resultados_busqueda = buscar_informacion(f"{termino} {campo_estudio}")
+                        contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
+                        definicion = generar_definicion(termino, contexto)
+                        terminos_definiciones[termino] = definicion
+                else:
+                    resultados_busqueda = buscar_informacion(f"{termino_seleccionado} {campo_estudio}")
+                    contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
+                    definicion = generar_definicion(termino_seleccionado, contexto)
+                    terminos_definiciones[termino_seleccionado] = definicion
+
+                st.subheader("Definiciones generadas:")
+                for termino, definicion in terminos_definiciones.items():
+                    st.markdown(f"**{termino}**: {definicion}")
 
                 # Botón para descargar el documento
-                doc = create_docx(definiciones)
+                doc = create_docx(campo_estudio, terminos_definiciones)
                 buffer = BytesIO()
                 doc.save(buffer)
                 buffer.seek(0)
                 st.download_button(
-                    label="Descargar definiciones en DOCX",
+                    label="Descargar diccionario en DOCX",
                     data=buffer,
-                    file_name="Definiciones_Diccionario_Económico.docx",
+                    file_name=f"Diccionario_{campo_estudio.replace(' ', '_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
-            else:
-                st.warning("La lista de términos está vacía.")
