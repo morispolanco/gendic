@@ -5,21 +5,23 @@ from docx import Document
 from io import BytesIO
 
 # Set page configuration
-st.set_page_config(page_title="Generador de Diccionario Especializado", page_icon="📚", layout="wide")
+st.set_page_config(page_title="Generador de Estructura de Libro", page_icon="📚", layout="wide")
 
 # Function to create the information column
 def crear_columna_info():
     st.markdown("""
     ## Sobre esta aplicación
 
-    Esta aplicación genera un diccionario especializado con definiciones concisas y referencias académicas en formato APA.
+    Esta aplicación genera una estructura de libro con capítulos, descripciones breves y citas relevantes en formato APA.
 
     ### Cómo usar la aplicación:
 
-    1. Ingrese un campo o área de estudio.
-    2. Genere y edite la lista de términos.
-    3. Genere definiciones para todos los términos o para uno específico.
-    4. Descargue el documento DOCX con definiciones y referencias.
+    1. Ingrese el título del libro.
+    2. Especifique el número de capítulos (máximo 15).
+    3. Defina la audiencia objetivo.
+    4. Añada observaciones adicionales si lo desea.
+    5. Genere la estructura del libro.
+    6. Descargue el documento DOCX con la estructura y las citas.
 
     ### Autor:
     **Moris Polanco**, [Fecha actual]
@@ -29,7 +31,7 @@ def crear_columna_info():
     """)
 
 # Titles and Main Column
-st.title("Generador de Diccionario Especializado")
+st.title("Generador de Estructura de Libro")
 
 col1, col2 = st.columns([1, 2])
 
@@ -40,11 +42,11 @@ with col2:
     TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
     SERPLY_API_KEY = st.secrets["SERPLY_API_KEY"]
 
-    def generar_terminos(campo_estudio):
+    def generar_capitulos(titulo_libro, num_capitulos, audiencia, observaciones):
         url = "https://api.together.xyz/inference"
         payload = json.dumps({
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Genera una lista de 101 términos relacionados con el campo de estudio: {campo_estudio}. Cada término debe estar en una línea nueva.",
+            "prompt": f"Genera una lista de {num_capitulos} capítulos para un libro titulado '{titulo_libro}'. La audiencia objetivo es: {audiencia}. Observaciones adicionales: {observaciones}. Cada capítulo debe estar en una línea nueva.",
             "max_tokens": 2048,
             "temperature": 0.7,
             "top_p": 0.7,
@@ -56,8 +58,8 @@ with col2:
             'Content-Type': 'application/json'
         }
         response = requests.post(url, headers=headers, data=payload)
-        terminos = response.json()['output']['choices'][0]['text'].strip().split('\n')
-        return [termino.strip() for termino in terminos if termino.strip()]
+        capitulos = response.json()['output']['choices'][0]['text'].strip().split('\n')
+        return [capitulo.strip() for capitulo in capitulos if capitulo.strip()]
 
     def buscar_informacion(query):
         url = f"https://api.serply.io/v1/scholar/q={query}"
@@ -70,17 +72,16 @@ with col2:
         response = requests.get(url, headers=headers)
         return response.json()
 
-    def generar_definicion(termino, contexto):
+    def generar_descripcion(capitulo, contexto):
         url = "https://api.together.xyz/inference"
         payload = json.dumps({
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "prompt": f"Proporciona una definición concisa y precisa del término '{termino}' basada en el siguiente contexto académico. No incluyas ejemplos, sinónimos, antónimos ni conceptos relacionados. Solo la definición:\n\nContexto: {contexto}\n\nDefinición:",
+            "prompt": f"Proporciona una descripción breve y concisa del capítulo '{capitulo}' basada en el siguiente contexto. La descripción debe tener aproximadamente 50 palabras:\n\nContexto: {contexto}\n\nDescripción:",
             "max_tokens": 1024,
             "temperature": 0.7,
             "top_p": 0.7,
             "top_k": 50,
             "repetition_penalty": 1,
-            "stop": ["Término:"]
         })
         headers = {
             'Authorization': f'Bearer {TOGETHER_API_KEY}',
@@ -89,20 +90,21 @@ with col2:
         response = requests.post(url, headers=headers, data=payload)
         return response.json()['output']['choices'][0]['text'].strip()
 
-    def create_docx(campo_estudio, terminos_definiciones, referencias):
+    def create_docx(titulo_libro, capitulos_descripciones, citas):
         doc = Document()
-        doc.add_heading(f'Diccionario de {campo_estudio}', 0)
+        doc.add_heading(f'Estructura del libro: {titulo_libro}', 0)
 
-        # Definiciones
-        doc.add_heading('Definiciones', level=1)
-        for termino, definicion in terminos_definiciones.items():
-            doc.add_paragraph(f"{termino}: {definicion}")
+        # Capítulos y descripciones
+        doc.add_heading('Capítulos y Descripciones', level=1)
+        for capitulo, descripcion in capitulos_descripciones.items():
+            doc.add_heading(capitulo, level=2)
+            doc.add_paragraph(descripcion)
 
-        # Referencias
+        # Citas
         doc.add_page_break()
-        doc.add_heading('Referencias', level=1)
-        for referencia in referencias:
-            doc.add_paragraph(referencia, style='List Bullet')
+        doc.add_heading('Citas Relevantes', level=1)
+        for cita in citas:
+            doc.add_paragraph(cita, style='List Bullet')
 
         return doc
 
@@ -130,62 +132,51 @@ with col2:
         return reference
 
     # Interfaz de usuario
-    campo_estudio = st.text_input("Ingresa un campo o área de estudio:")
+    titulo_libro = st.text_input("Ingresa el título del libro:")
+    num_capitulos = st.number_input("Número de capítulos:", min_value=1, max_value=15, value=5)
+    audiencia = st.text_input("Audiencia objetivo:")
+    observaciones = st.text_area("Observaciones adicionales:")
 
-    if st.button("Generar términos"):
-        if campo_estudio:
-            with st.spinner("Generando términos..."):
-                terminos = generar_terminos(campo_estudio)
-                st.session_state.terminos = terminos
+    if st.button("Generar estructura del libro"):
+        if titulo_libro and audiencia:
+            with st.spinner("Generando estructura del libro..."):
+                capitulos = generar_capitulos(titulo_libro, num_capitulos, audiencia, observaciones)
+                st.session_state.capitulos = capitulos
 
-    if 'terminos' in st.session_state:
-        st.subheader("Lista de términos (editable):")
-        terminos_editados = st.text_area("Edita los términos aquí:", "\n".join(st.session_state.terminos), height=300)
-        st.session_state.terminos_editados = terminos_editados.split('\n')
+    if 'capitulos' in st.session_state:
+        st.subheader("Capítulos generados:")
+        for capitulo in st.session_state.capitulos:
+            st.write(capitulo)
 
-    if 'terminos_editados' in st.session_state:
-        opcion_definicion = st.radio("Selecciona una opción:", ["Generar todas las definiciones", "Generar definición para un término específico"])
+        if st.button("Generar descripciones y citas"):
+            with st.spinner("Generando descripciones y citas..."):
+                capitulos_descripciones = {}
+                todas_citas = []
 
-        if opcion_definicion == "Generar definición para un término específico":
-            termino_seleccionado = st.selectbox("Selecciona un término:", st.session_state.terminos_editados)
-
-        if st.button("Generar definiciones"):
-            with st.spinner("Generando definiciones y referencias..."):
-                terminos_definiciones = {}
-                todas_referencias = []
-
-                if opcion_definicion == "Generar todas las definiciones":
-                    for termino in st.session_state.terminos_editados:
-                        resultados_busqueda = buscar_informacion(f"{termino} {campo_estudio}")
-                        contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
-                        definicion = generar_definicion(termino, contexto)
-                        terminos_definiciones[termino] = definicion
-                        referencias = [formatear_referencia_apa(item) for item in resultados_busqueda.get("results", [])]
-                        todas_referencias.extend(referencias)
-                else:
-                    resultados_busqueda = buscar_informacion(f"{termino_seleccionado} {campo_estudio}")
+                for capitulo in st.session_state.capitulos:
+                    resultados_busqueda = buscar_informacion(f"{capitulo} {titulo_libro}")
                     contexto = "\n".join([item["snippet"] for item in resultados_busqueda.get("results", [])])
-                    definicion = generar_definicion(termino_seleccionado, contexto)
-                    terminos_definiciones[termino_seleccionado] = definicion
-                    referencias = [formatear_referencia_apa(item) for item in resultados_busqueda.get("results", [])]
-                    todas_referencias.extend(referencias)
+                    descripcion = generar_descripcion(capitulo, contexto)
+                    capitulos_descripciones[capitulo] = descripcion
+                    citas = [formatear_referencia_apa(item) for item in resultados_busqueda.get("results", [])[:2]]  # Tomamos solo 2 citas por capítulo
+                    todas_citas.extend(citas)
 
-                st.subheader("Definiciones generadas:")
-                for termino, definicion in terminos_definiciones.items():
-                    st.markdown(f"**{termino}**: {definicion}")
+                st.subheader("Descripciones de capítulos:")
+                for capitulo, descripcion in capitulos_descripciones.items():
+                    st.markdown(f"**{capitulo}**: {descripcion}")
 
-                st.subheader("Referencias:")
-                for referencia in todas_referencias:
-                    st.markdown(f"- {referencia}")
+                st.subheader("Citas relevantes:")
+                for cita in todas_citas[:10]:  # Limitamos a 10 citas en total
+                    st.markdown(f"- {cita}")
 
                 # Botón para descargar el documento
-                doc = create_docx(campo_estudio, terminos_definiciones, todas_referencias)
+                doc = create_docx(titulo_libro, capitulos_descripciones, todas_citas[:10])
                 buffer = BytesIO()
                 doc.save(buffer)
                 buffer.seek(0)
                 st.download_button(
-                    label="Descargar diccionario en DOCX",
+                    label="Descargar estructura del libro en DOCX",
                     data=buffer,
-                    file_name=f"Diccionario_{campo_estudio.replace(' ', '_')}.docx",
+                    file_name=f"Estructura_{titulo_libro.replace(' ', '_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
