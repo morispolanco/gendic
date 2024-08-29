@@ -21,7 +21,7 @@ def crear_columna_info():
     3. Defina la audiencia objetivo.
     4. Añada observaciones adicionales si lo desea.
     5. Genere la estructura del libro.
-    6. Descargue el documento DOCX con la estructura y las citas.
+    6. Descargue el documento DOCX con la estructura y las citas. 
 
     ### Autor:
     **Moris Polanco**, [Fecha actual]
